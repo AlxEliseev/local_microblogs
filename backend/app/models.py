@@ -2,9 +2,12 @@ from typing import List
 import uuid as uuid_lib
 
 from sqlalchemy import ARRAY, Integer, String, UniqueConstraint, ForeignKey, CheckConstraint, Uuid
-from sqlalchemy import event, inspect
+from sqlalchemy import event, inspect, select, delete, Result
 from sqlalchemy.orm import Mapped, mapped_column, relationship, declarative_base, DeclarativeBase
 from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy.ext.asyncio import AsyncSession
+
+
 
 class Base(DeclarativeBase):
     def __repr__(self):
@@ -38,7 +41,7 @@ class User(Base):
                                                      lazy="selectin",
                                                      cascade="all, delete-orphan",
                                                      )
-    followed: Mapped[List["User"]] = association_proxy("following_links",
+    following: Mapped[List["User"]] = association_proxy("following_links",
                                                        "followee",
                                                        creator=lambda u: Follow(followee=u)
                                                        )
@@ -157,3 +160,45 @@ class Media(Base):
 @event.listens_for(Media, 'before_insert')
 def construct_relative_path(mapper, connection, media_obj):
     media_obj.relative_path = f"/{media_obj.tweet_id}/{media_obj.uuid}.{media_obj.file_ext}"
+
+async def get_user_by_id(user_id: int, session: AsyncSession) -> User:
+    """
+    Gets user from database by User.id
+    :param user_id: User.id
+    :param session: database transaction session
+    :return: User object
+    """
+    stmt = select(User).where(User.id == user_id)
+    rv = await session.execute(stmt)
+    user: User = rv.scalar_one_or_none()
+    return user
+
+async def get_user_by_api_key(api_key: str, session: AsyncSession) -> User:
+    """
+    Gets user from database with API key secret
+    :param api_key: API key for user
+    :param session: database transaction session
+    :return: User object
+    """
+    #This function should be changed with ApiKeys model with secrets
+    user: User = await get_user_by_id(int(api_key), session) # TODO change for production
+    return user
+
+async def follow(follower_id: int, followee_id: int, session: AsyncSession):
+    """
+    Follow User(id=followee_id) by User(id=follower_id)
+    :param follower_id:
+    :param followee_id:
+    :param session: database transaction session
+    """
+    follow: Follow = Follow(follower_id=follower_id, followee_id=followee_id)
+    session.add(follow)
+    await session.flush()
+
+async def unfollow(follower_id: int, followee_id: int, session: AsyncSession):
+    stmt = (delete(Follow).
+            where(Follow.follower_id == follower_id,
+                  Follow.followee_id == followee_id).
+            returning(Follow.followee_id))
+    rv = await session.execute(stmt)
+    return rv.scalar_one_or_none()

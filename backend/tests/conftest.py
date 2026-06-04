@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from ..app.main import create_app
 from ..app.models import Base, User, Tweet, Follow, Like
+from ..app.database import get_session
 
 
 TEST_DATABASE_URL = "postgresql+asyncpg://admin:admin@localhost:5432/test_db"
@@ -15,10 +16,12 @@ test_session_maker = async_sessionmaker(
     test_engine, expire_on_commit=False, class_=AsyncSession
 )
 
-@pytest.fixture
-def app():
+@pytest_asyncio.fixture
+async def app(session):
     _app = create_app(TEST_DATABASE_URL)
+    _app.dependency_overrides[get_session] = lambda: session
     yield _app
+    _app.dependency_overrides.clear()
 
 @pytest_asyncio.fixture
 async def _engine():
@@ -37,7 +40,7 @@ async def session(_engine) -> AsyncGenerator[AsyncSession, None]:
             yield test_session
 
 @pytest_asyncio.fixture
-async def app_client(app, session):
+async def app_client(app):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
