@@ -1,0 +1,30 @@
+services:
+  nginx:
+    build: ./frontend/
+    container_name: twitter_clone_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      app:
+        condition: service_started
+
+  app:
+    build: .
+    container_name: twitter_clone_app
+    expose:
+      - "8080"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://admin:admin@postgres:5432/twitter_db
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:17
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin
+      - POSTGRES_DB=twitter_db
+    ports:
+      - '5432:5432'
+    volumes:
+      - ~/twitter_clone_pg_data:/var/lib/postgresql/data
