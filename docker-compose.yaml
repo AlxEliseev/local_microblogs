@@ -20,6 +20,7 @@ services:
 
   postgres:
     image: postgres:17
+    container_name: postgres
     environment:
       - POSTGRES_USER=admin
       - POSTGRES_PASSWORD=admin

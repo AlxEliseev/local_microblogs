@@ -1,89 +1,85 @@
-from typing import AsyncGenerator, Annotated
+from typing import Annotated
 
-from fastapi import APIRouter, Path, Depends, Header
-from fastapi.exceptions import HTTPException
+from fastapi import APIRouter, Path, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import selectinload
 from ..database import get_session
+from ..exceptions import AlreadyFollowingError, NoFollowError, NoUserError
 
 from ..schemas import BaseSchema, ErrorSchema, UserSchema
-from ..models import User, get_user_by_api_key, get_user_by_id, follow, unfollow
+from ..models import User, Follow
+from ..utils.users_utils import check_api_key
+from ..crud import UserCRUD, FollowCRUD
 
 router = APIRouter(
     prefix="/api/users",
+    responses={401: {"model": ErrorSchema, "description": "Unauthorized"},
+               404: {"model": ErrorSchema, "description": "Not found"},
+               409: {"model": ErrorSchema, "description": "Conflict"}},
     tags=["users"]
 )
 
-async def check_api_key(api_key: Annotated[str | None, Header(alias="api-key")] = None,
-                        session: AsyncSession = Depends(get_session)) -> User:
-    if not api_key:
-        raise HTTPException(status_code=401, detail="No API key passed")
-    user: User = await get_user_by_api_key(api_key, session)
-    if not user:
-        raise HTTPException(status_code=408, detail=f"Wrong API key {api_key}")
-    return user
 
 @router.post("/{id}/follow",
              response_model=BaseSchema,
-             responses={
-                 401: {"model": ErrorSchema},
-                 409: {"model": ErrorSchema},
-             },
              summary='Follow user',
              description='Follow user by User.id')
 async def follow_user(id: Annotated[str, Path()],
                       user: User = Depends(check_api_key),
                       session: AsyncSession = Depends(get_session)):
     try:
-        await follow(follower_id=user.id, followee_id=int(id), session=session)
+        await FollowCRUD(session).follow(follower_id=user.id, followee_id=int(id))
+        await session.flush()
     except IntegrityError:
-        raise HTTPException(status_code=409, detail="Already following this user")
-    await session.commit()
-    return {"result": True}
+        raise AlreadyFollowingError
+
+    return {}
+
 
 @router.delete("/{id}/follow",
              response_model=BaseSchema,
-             responses={
-                 401: {"model": ErrorSchema},
-                 404: {"model": ErrorSchema},
-             },
              summary='Unfollow user',
              description='Unfollow user by User.id')
 async def unfollow_user(id: Annotated[str, Path()],
                         user: User = Depends(check_api_key),
                         session: AsyncSession = Depends(get_session)):
-    result = await unfollow(follower_id=user.id, followee_id=int(id), session=session)
-    if result:
-        return {"result": result}
-    else:
-        raise HTTPException(status_code=404, detail="No such follow in database")
+    result = await FollowCRUD(session).unfollow(follower_id=user.id, followee_id=int(id))
+    if not result:
+        raise NoFollowError
+    return {}
 
 
 @router.get("/me",
             response_model=UserSchema,
-            responses={
-                401: {"model": ErrorSchema}
-            },
             summary='Current user information',
             description='Shows current user information with following and followers info')
-async def get_account_info(user: User = Depends(check_api_key)):
+async def get_account_info(user: User = Depends(check_api_key),
+                           session: AsyncSession = Depends(get_session)):
+    user: User = await (UserCRUD(session)
+                        .get_by_id(user.id,
+                                   options=[selectinload(User.following_links).
+                                            selectinload(Follow.followee),
+                                            selectinload(User.follower_links).
+                                            selectinload(Follow.follower)]))
     return {"user": user}
 
+
 @router.get("/{id}",
-            dependencies=[Depends(check_api_key),],
             response_model=UserSchema,
-            responses={
-                401: {"model": ErrorSchema},
-                404: {"model": ErrorSchema}
-            },
+            dependencies=[Depends(check_api_key), ],
             summary='User information',
             description='Shows user information with following and followers info'
             )
-async def get_user_info(id: int,
+async def get_user_info(id: Annotated[int, Path()],
                         session: AsyncSession = Depends(get_session)):
-    user: User = await get_user_by_id(id, session)
-    if user:
-        return {"user": user}
-    else:
-        raise HTTPException(status_code=404, detail="No such user in database")
+    user: User = await (UserCRUD(session)
+                        .get_by_id(id,
+                                   options=[selectinload(User.following_links)
+                                            .selectinload(Follow.followee),
+                                            selectinload(User.follower_links)
+                                            .selectinload(Follow.follower)]))
+    if not user:
+        raise NoUserError
+    return {"user": user}
 

@@ -1,39 +1,31 @@
-import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Path
+from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
-from . import models
-from . import database
+from .database import engine
+from .exceptions import ApplicationException
 from .routers import users, tweets, medias
+from .logger_config import setup_logging
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+asyncpg://admin:admin@postgres:5432/twitter_db"
-)
+setup_logging()
 
-def create_app(db_url: str):
-    database.init_db(db_url)
-
+def create_app():
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
-        # before app starts
-        async with database.engine.begin() as conn:
-            await conn.run_sync(models.Base.metadata.create_all, checkfirst=True)
         yield
-        # after app finishes
-        await database.close_db()
+        await engine.dispose()
 
     _app = FastAPI(lifespan=lifespan)
 
-    @_app.exception_handler(HTTPException)
-    async def custom_http_exception_handler(request, exc: HTTPException):
+    @_app.exception_handler(ApplicationException)
+    async def custom_exception_handler(request, exc: ApplicationException):
         return JSONResponse(
             status_code=exc.status_code,
             content={
                 "result": False,
-                "message": exc.detail
+                "error_type": exc.error_type,
+                "error_message": exc.detail
             }
         )
 
@@ -43,6 +35,5 @@ def create_app(db_url: str):
 
     return _app
 
-
-app = create_app(DATABASE_URL)
+app = create_app()
 

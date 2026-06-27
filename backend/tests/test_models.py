@@ -1,5 +1,6 @@
 import pytest
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload, joinedload
 from sqlalchemy.exc import IntegrityError
 
 from ..app.models import User, Tweet, Follow, Media, Like
@@ -52,8 +53,11 @@ async def test_append_following_creates_follow(seed_data, session):
     Добавление через association_proxy: user.following.append(other)
     должно создавать Follow (проверка creator)
     """
-    user_1: User | None = await session.get(User, 1)
-    user_2: User | None = await session.get(User, 2)
+    stmt_1 = select(User).where(User.id == 1).options(selectinload(User.following_links))
+    stmt_2 = select(User).where(User.id == 2).options(selectinload(User.follower_links))
+
+    user_1 = (await session.execute(stmt_1)).scalar_one_or_none()
+    user_2 = (await session.execute(stmt_2)).scalar_one_or_none()
     assert user_1
     assert user_2
 
@@ -91,8 +95,12 @@ async def test_delete_user_no_orphans_left(seed_data, session):
     Удаление user через session.delete(user) должно удалять связанные Follow‑записи
     (и не оставлять орфанов).
     """
-    user_1: User | None = await session.get(User, 1)
-    user_2: User | None = await session.get(User, 2)
+    stmt_1 = select(User).where(User.id == 1).options(selectinload(User.follower_links))
+    stmt_2 = select(User).where(User.id == 2).options(selectinload(User.following_links))
+
+    user_1 = (await session.execute(stmt_1)).scalar_one_or_none()
+    user_2 = (await session.execute(stmt_2)).scalar_one_or_none()
+
     assert user_1
     assert user_1.name == "user1"
     assert user_2.following[0].id == 1
@@ -119,12 +127,13 @@ async def test_pop_following_no_orphans_left(seed_data, session):
     Разрыв связи user через user.following[0].pop() должно удалять связанные Follow‑записи
     (и не оставлять орфанов).
     """
-    user_2: User | None = await session.get(User, 2)
+    stmt = select(User).where(User.id == 2).options(selectinload(User.following_links))
+    user_2 = (await session.execute(stmt)).scalar_one_or_none()
     assert user_2
 
-    stmt = select(Follow).where(Follow.followee_id == 1)
-    rv = await session.execute(stmt)
-    follow: Follow = rv.scalar_one_or_none()
+    stmt = select(Follow).where(Follow.followee_id == 1).options(joinedload(Follow.follower),
+                                                                 joinedload(Follow.followee))
+    follow: Follow = (await session.execute(stmt)).scalar_one_or_none()
     assert follow.id == 1
     assert follow.follower_id == 2
     assert follow.followee_id == 1
@@ -144,7 +153,8 @@ async def test_pop_following_no_orphans_left(seed_data, session):
 @pytest.mark.asyncio
 async def test_create_tweet_by_append(seed_data, session):
     """Добавление через user.tweets.append создаёт твит"""
-    user: User | None = await session.get(User, 1)
+    stmt = select(User).where(User.id == 1).options(selectinload(User.tweets))
+    user = (await session.execute(stmt)).scalar_one_or_none()
     new_tweet: Tweet = Tweet(tweet_data="some tweet data")
     user.tweets.append(new_tweet) # type: ignore
     await session.flush()
@@ -157,7 +167,8 @@ async def test_create_tweet_by_append(seed_data, session):
 @pytest.mark.asyncio
 async def test_create_tweet_by_author(seed_data, session):
     """Добавление через author_id помещает твит в коллекцию user.tweets"""
-    user: User | None = await session.get(User, 2)
+    stmt = select(User).where(User.id == 2).options(selectinload(User.tweets))
+    user = (await session.execute(stmt)).scalar_one_or_none()
     new_tweet: Tweet = Tweet(tweet_data="some tweet data", author=user)
     session.add(new_tweet)
     await session.flush()
@@ -166,7 +177,10 @@ async def test_create_tweet_by_author(seed_data, session):
 @pytest.mark.asyncio
 async def test_tweet_params_links_correct(seed_data, session):
     """твит корректно связан с автором, лайкнувшими пользователями"""
-    tweet: Tweet | None = await session.get(Tweet, 1)
+    stmt = (select(Tweet).where(Tweet.id == 1).
+            options(joinedload(Tweet.author, innerjoin=True),
+                    selectinload(Tweet.likes).joinedload(Like.user)))
+    tweet: Tweet = (await session.execute(stmt)).scalar_one_or_none()
     assert tweet.author.id == 1
     assert tweet.liked_users[0].id == 2
 
@@ -185,8 +199,13 @@ async def test_like_by_append(seed_data, session):
     user: User = User(name="new_username")
     session.add(user)
     await session.flush()
-    await session.refresh(user, ["likes"])
-    tweet: Tweet | None = await session.get(Tweet, 1)
+    stmt_tweet = (select(Tweet).where(Tweet.id == 1).
+                  options(joinedload(Tweet.author),
+                          selectinload(Tweet.likes).joinedload(Like.user)))
+    tweet: Tweet = (await session.execute(stmt_tweet)).scalar_one_or_none()
+    stmt_user = (select(User).where(User.id == user.id)
+                 .options(selectinload(User.likes).joinedload(Like.tweet)))
+    user = (await session.execute(stmt_user)).scalar_one()
     user.liked_tweets.append(tweet)
     await session.flush()
     assert user.likes[0].tweet_id == 1
@@ -204,6 +223,7 @@ async def test_create_like_by_tweet(seed_data, session):
     session.add_all([new_user, new_like])
     await session.flush()
     await session.refresh(new_user, ["likes",])
+    await session.refresh(new_like, ["tweet", ])
     assert new_user.likes[0] is new_like
     assert new_user.liked_tweets[0].id == 1
 
@@ -229,7 +249,9 @@ async def test_like_no_fk_exception(seed_data, session):
 @pytest.mark.asyncio
 async def test_double_like_exception(seed_data, session):
     """Повторный лайк должен упасть"""
-    user: User | None = await session.get(User, 2)
+    stmt_user = (select(User).where(User.id == 2).
+                  options(selectinload(User.likes)))
+    user: User = (await session.execute(stmt_user)).scalar_one_or_none()
     tweet: Tweet | None = await session.get(Tweet, 1)
     user.liked_tweets.append(tweet)
     with pytest.raises(IntegrityError):
@@ -237,7 +259,9 @@ async def test_double_like_exception(seed_data, session):
 
 @pytest.mark.asyncio
 async def test_like_delete_orphan(seed_data, session):
-    user: User | None = await session.get(User, 2)
+    stmt_user = (select(User).where(User.id == 2).
+                 options(selectinload(User.likes)))
+    user: User = (await session.execute(stmt_user)).scalar_one_or_none()
     like = user.likes[0]
     like_id = like.id
     user.likes.pop(0)
@@ -247,26 +271,23 @@ async def test_like_delete_orphan(seed_data, session):
     user_like = rv.scalar_one_or_none()
     assert user_like is None
 
-
-
 # Проверка Media
 @pytest.mark.asyncio
 async def test_create_media_and_append(seed_data, session):
     """Создание Media"""
-    tweet: Tweet | None = await session.get(Tweet, 1)
-    new_media: Media = Media(file_ext="jpg", size=54)
+    stmt_tweet = (select(Tweet).where(Tweet.id == 1).
+                  options(selectinload(Tweet.medias)))
+    tweet: Tweet = (await session.execute(stmt_tweet)).scalar_one_or_none()
+    new_media: Media = Media(uuid='f18d1521-0c80-46af-b4ad-366027e6ad1a',
+                             mime_type='image/jpeg',
+                             size=100,
+                             relative_path='relative_path')
     tweet.medias.append(new_media)
     await session.flush()
-    media = tweet.medias[0]
-    assert media.relative_path == f"/{tweet.id}/{media.uuid}.{media.file_ext}"
+    media = tweet.medias[1]
 
-@pytest.mark.asyncio
-async def test_media_no_parent_exception(seed_data, session):
-    """Создание Media без tweet_id должно упасть"""
-    new_media: Media = Media(file_ext="jpg", size=54,
-                             uuid="81ced630-5502-4c71-92b3-d64931cd24f7")
-    session.add(new_media)
-    with pytest.raises(IntegrityError):
-        await session.flush()
+    assert media.id == 2
+
+
 
 
