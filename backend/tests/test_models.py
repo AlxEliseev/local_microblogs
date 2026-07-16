@@ -115,7 +115,7 @@ async def test_delete_user_no_orphans_left(seed_data, session):
     following = (await session.execute(select_following_stmt)).scalar_one_or_none()
     follower = (await session.execute(select_follower_stmt)).scalar_one_or_none()
 
-    assert following.following[0].id == 1
+    assert follower.following[0].id == 1
 
     stmt = select(Follow).where(Follow.followee_id == 1)
     rv = await session.execute(stmt)
@@ -130,7 +130,7 @@ async def test_delete_user_no_orphans_left(seed_data, session):
     assert follow is None
 
     await session.refresh(follower, attribute_names=["following_links"])
-    assert len(user_2.following) == 0  # type: ignore
+    assert len(follower.following) == 0  # type: ignore
 
 
 @pytest.mark.asyncio

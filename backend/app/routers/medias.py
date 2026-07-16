@@ -37,18 +37,18 @@ router = APIRouter(
 )
 @router_logging("POST", "/api/medias")
 async def load_media(
-    uploaded_file: UploadFile,
+    media_file: UploadFile,
     user: User = Depends(check_api_key),
     session: AsyncSession = Depends(get_session),
 ):
-    mime_type = uploaded_file.content_type
+    mime_type = media_file.content_type
     file_uuid, relative_path = await save_file_to_storage(
-        uploaded_file.file, mime_type, user.id
+        media_file.file, mime_type, user.id
     )
     media_params = {
         "uuid": file_uuid,
         "mime_type": mime_type,
-        "size": uploaded_file.size,
+        "size": media_file.size,
         "relative_path": relative_path,
     }
 
