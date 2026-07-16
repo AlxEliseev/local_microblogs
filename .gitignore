@@ -140,3 +140,6 @@ dmypy.json
 .swp
 
 prettifier.py
+
+# linter config
+setup.cfg

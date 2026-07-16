@@ -2,13 +2,14 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-
+from logging import config as log_config
 from .database import engine
 from .exceptions import ApplicationException
 from .routers import users, tweets, medias
-from .logger_config import setup_logging
+from .logger_config import dict_config
 
-setup_logging()
+log_config.dictConfig(dict_config)
+
 
 def create_app():
     @asynccontextmanager
@@ -25,8 +26,8 @@ def create_app():
             content={
                 "result": False,
                 "error_type": exc.error_type,
-                "error_message": exc.detail
-            }
+                "error_message": exc.detail,
+            },
         )
 
     _app.include_router(users.router)
@@ -35,5 +36,5 @@ def create_app():
 
     return _app
 
-app = create_app()
 
+app = create_app()

@@ -10,8 +10,10 @@ from ..models import User
 from ..crud import UserCRUD
 
 
-async def check_api_key(api_key: Annotated[str | None, Header(alias="api-key")] = None,
-                        session: AsyncSession = Depends(get_session)) -> User:
+async def check_api_key(
+    api_key: Annotated[str | None, Header(alias="api-key")] = None,
+    session: AsyncSession = Depends(get_session),
+) -> User:
 
     if not api_key:
         raise AuthorizationError
@@ -20,4 +22,3 @@ async def check_api_key(api_key: Annotated[str | None, Header(alias="api-key")] 
     if not user:
         raise AuthorizationError(detail=f"Wrong or expired API key")
     return user
-

@@ -7,20 +7,21 @@ from ..config import MEDIA_STORAGE
 
 logger = logging.getLogger(__name__)
 
-async def save_file_to_storage(file: BinaryIO, mime_type: str, user_id: int):
+
+async def save_file_to_storage(media_file: BinaryIO, mime_type: str, user_id: int):
     uuid = uuid_lib.uuid4()
-    file_ext = mime_type.split('/')[-1]
-    file_name = f'{uuid}.{file_ext}'
+    file_ext = mime_type.split("/")[-1]
+    file_name = f"{uuid}.{file_ext}"
     user_dir = MEDIA_STORAGE / str(user_id)
     file_path = user_dir / file_name
 
-    def write_file(file_obj):
+    def write_file(file_obj):  # noqa: WPS430
         user_dir.mkdir(parents=True, exist_ok=True)
 
-        with open(file_path, 'wb') as f:
-            shutil.copyfileobj(file_obj, f)
+        with open(file_path, "wb") as m_file:
+            shutil.copyfileobj(file_obj, m_file)
 
-    await asyncio.to_thread(write_file, file)
+    await asyncio.to_thread(write_file, media_file)
 
     relative_path = file_path.relative_to(MEDIA_STORAGE)
 

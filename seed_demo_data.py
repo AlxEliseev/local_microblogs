@@ -1,6 +1,11 @@
 from typing import AsyncGenerator
 
-from sqlalchemy.ext.asyncio import AsyncSession, AsyncEngine, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    AsyncEngine,
+    async_sessionmaker,
+    create_async_engine,
+)
 import asyncio
 import factory
 import random
@@ -11,21 +16,23 @@ from backend.app.models import Base, User, Tweet, Follow, Like
 DATABASE_URL = "postgresql+asyncpg://admin:admin@localhost:5432/twitter_db"
 
 engine: AsyncEngine = create_async_engine(DATABASE_URL, echo=True)
-session_maker: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False,
-                                                                     class_=AsyncSession)
+session_maker: async_sessionmaker[AsyncSession] = async_sessionmaker(
+    engine, expire_on_commit=False, class_=AsyncSession
+)
+
 
 class UserFactory(factory.Factory):
     class Meta:
         model = User
 
-    name = factory.Faker('name')
+    name = factory.Faker("name")
 
 
 class TweetFactory(factory.Factory):
     class Meta:
         model = Tweet
 
-    tweet_data = factory.Faker('text', max_nb_chars=200)
+    tweet_data = factory.Faker("text", max_nb_chars=200)
 
     author = None
 
@@ -66,21 +73,16 @@ async def seed_demo_data():
 
                 for target_user in tracked_users:
                     follow = Follow(
-                        follower_id=current_user.id,
-                        followee_id=target_user.id
+                        follower_id=current_user.id, followee_id=target_user.id
                     )
                     relations.append(follow)
-
 
             for current_user in users:
                 num_likes = random.randint(3, min(7, len(tweets)))
                 liked_tweets = random.sample(tweets, num_likes)
 
                 for tweet in liked_tweets:
-                    like = Like(
-                        user_id=current_user.id,
-                        tweet_id=tweet.id
-                    )
+                    like = Like(user_id=current_user.id, tweet_id=tweet.id)
                     relations.append(like)
 
             session.add_all(relations)

@@ -16,9 +16,11 @@ async def db_resources():
     При попытке создания единого engine для всей тестовой сессии (scope='session')
     возникает ошибка:
      InterfaceError: cannot perform operation: another operation is in progress
-     """
-    engine = create_async_engine(TEST_DATABASE_URL, echo=True)
-    session_maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    """
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+    session_maker = async_sessionmaker(
+        engine, expire_on_commit=False, class_=AsyncSession
+    )
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
@@ -67,24 +69,24 @@ async def app_client(app):
 @pytest_asyncio.fixture
 async def seed_data(session):
     """Заполнение базы данных тестовыми данными"""
-    user_1 = User(name="user1")
-    user_2 = User(name="user2")
-    session.add_all([user_1, user_2])
+    users = [User(name="user1"), User(name="user2")]
+
+    session.add_all(users)
     await session.flush()
 
-    tweet = Tweet(tweet_data="Some text data", author_id=user_1.id)
-    media = Media(uuid='f18d1520-0c80-46af-b4ad-366027e6ad1a',
-                  mime_type='image/jpeg',
-                  size=100,
-                  relative_path='relative_path',
-                  tweet_id=1)
+    tweet = Tweet(tweet_data="Some text data", author_id=users[0].id)
+    media = Media(
+        uuid="f18d1520-0c80-46af-b4ad-366027e6ad1a",
+        mime_type="image/jpeg",
+        size=100,
+        relative_path="relative_path",
+        tweet_id=1,
+    )
     session.add_all([tweet, media])
     await session.flush()
 
-    like = Like(user_id=user_2.id, tweet_id=tweet.id)
-    follow = Follow(follower_id=user_2.id, followee_id=user_1.id)
+    like = Like(user_id=users[1].id, tweet_id=tweet.id)
+    follow = Follow(follower_id=users[1].id, followee_id=users[0].id)
     session.add_all([like, follow])
 
     await session.commit()
-
-
