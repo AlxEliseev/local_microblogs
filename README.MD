@@ -5,14 +5,25 @@
 Это учебный проект по курсу "Python - разработчик" представляет из себя корпоративный сервис микроблогов - аналог Twitter`а.
 
 ## Установка и запуск
-Для запуска сервиса на сервере выполните команды
+Для установки на сервере выполните команду
+```
+git clone https://github.com/AlxEliseev/skillbox_advanced_diploma.git
+```
 
+Для запуска сервиса на сервере перейдите в директорию *skillbox_advanced_diploma*
+```
+cd skillbox_advanced_diploma
+```
+и выполните команды
 ```
 docker compose build
 docker compose up
 ``` 
 
 Для заполнения базы данных тестовыми данными после запуска сервера запустите скрипт *seed_demo_data.py*
+```
+docker exec -it twitter_clone_app python -m app.seed_demo_data
+```
 
 ## Реализованый функционал
 

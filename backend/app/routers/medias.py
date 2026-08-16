@@ -1,5 +1,5 @@
 from typing import Annotated
-from fastapi import APIRouter, UploadFile, Depends, Path, status
+from fastapi import APIRouter, File, UploadFile, Depends, Path, status
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,7 +37,7 @@ router = APIRouter(
 )
 @router_logging("POST", "/api/medias")
 async def load_media(
-    media_file: UploadFile,
+    media_file: UploadFile = File(..., alias="file"),
     user: User = Depends(check_api_key),
     session: AsyncSession = Depends(get_session),
 ):

@@ -1,5 +1,3 @@
-from typing import AsyncGenerator
-
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     AsyncEngine,
@@ -17,7 +15,7 @@ from .config import DATABASE_URL
 # for local running script uncomment
 # DATABASE_URL = "postgresql+asyncpg://admin:admin@localhost:5432/twitter_db"
 
-engine: AsyncEngine = create_async_engine(DATABASE_URL, echo=True)
+engine: AsyncEngine = create_async_engine(DATABASE_URL, echo=False)
 session_maker: async_sessionmaker[AsyncSession] = async_sessionmaker(
     engine, expire_on_commit=False, class_=AsyncSession
 )
