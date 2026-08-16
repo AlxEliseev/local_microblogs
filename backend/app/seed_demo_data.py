@@ -11,9 +11,11 @@ import factory
 import random
 
 
-from backend.app.models import Base, User, Tweet, Follow, Like
+from .models import Base, User, Tweet, Follow, Like
+from .config import DATABASE_URL
 
-DATABASE_URL = "postgresql+asyncpg://admin:admin@localhost:5432/twitter_db"
+# for local running script uncomment
+# DATABASE_URL = "postgresql+asyncpg://admin:admin@localhost:5432/twitter_db"
 
 engine: AsyncEngine = create_async_engine(DATABASE_URL, echo=True)
 session_maker: async_sessionmaker[AsyncSession] = async_sessionmaker(
