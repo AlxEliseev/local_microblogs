@@ -105,7 +105,7 @@ class BaseCRUD[ModelType: models.Base]:
 class UserCRUD(BaseCRUD[models.User]):
     model = models.User
 
-    async def get_user_by_api_key(self, api_key: str) -> models.User:
+    async def get_user_by_api_key(self, api_key: str) -> models.User | None:
         """
         Gets user from database with API key secret
         :param api_key: API key for user
@@ -114,6 +114,11 @@ class UserCRUD(BaseCRUD[models.User]):
         # This function should be changed with ApiKeys model with secrets
         if api_key == "test":
             api_key = 1
+
+        try:
+            api_key = int(api_key)
+        except ValueError:
+            return None
         user: models.User = await self.get_by_id(
             int(api_key)
         )  # TODO change for production
