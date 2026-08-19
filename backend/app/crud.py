@@ -1,7 +1,7 @@
 from typing import Sequence, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.base import ExecutableOption
-from sqlalchemy import select, delete as sql_delete, or_, update as sql_update
+from sqlalchemy import select, delete as sql_delete, or_, update as sql_update, func
 from sqlalchemy.orm import selectinload, joinedload
 from sqlalchemy.exc import NoResultFound
 from . import models
@@ -195,15 +195,16 @@ class TweetCRUD(BaseCRUD[models.Tweet]):
 
         stmt = (
             select(models.Tweet)
+            .outerjoin(models.Like)
             .where(
                 or_(
-                    models.Tweet.author_id == user_id,
-                    models.Tweet.author_id.in_(following_ids_stmt),
-                    models.Tweet.id.in_(liked_tweet_ids_stmt),
+                    # models.Tweet.author_id == user_id, # user tweets
+                    models.Tweet.author_id.in_(following_ids_stmt), # following tweets
+                    models.Tweet.id.in_(liked_tweet_ids_stmt), # liked tweets
                 )
             )
-            .order_by(models.Tweet.id.desc())
-            .distinct()
+            .group_by(models.Tweet.id)
+            .order_by(func.count(models.Like.id).desc()) # desc order by likes count
             .options(
                 selectinload(models.Tweet.medias),
                 selectinload(models.Tweet.author),
