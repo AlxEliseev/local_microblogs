@@ -91,7 +91,7 @@ async def test_create_media(app_client, seed_data):
     app_dir = Path(__file__).resolve().parent.parent
     test_image_path = app_dir / "tests" / "medias" / "test_image.jpeg"
     with open(test_image_path, "rb") as media_file:
-        files = {"media_file": ("test_image.jpeg", media_file, "image/jpeg")}
+        files = {"file": ("test_image.jpeg", media_file, "image/jpeg")}
         rv = await app_client.post("/api/medias", files=files, headers={"api-key": "1"})
     assert rv.status_code == status.HTTP_201_CREATED
     assert rv.json() == {"result": True, "media_id": 2}
@@ -132,7 +132,7 @@ async def test_create_tweet_media_not_found_exception(app_client, seed_data):
 @pytest.mark.asyncio
 async def test_home_feed(app_client, seed_data):
     """Tests if users list of tweet returns correctly"""
-    rv = await app_client.get("/api/tweets", headers={"api-key": "1"})
+    rv = await app_client.get("/api/tweets", headers={"api-key": "2"})
     assert rv.status_code == status.HTTP_200_OK
     assert rv.json() == {
         "result": True,

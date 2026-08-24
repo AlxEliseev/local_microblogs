@@ -205,7 +205,7 @@ class TweetCRUD(BaseCRUD[models.Tweet]):
                 or_(
                     # models.Tweet.author_id == user_id, # user tweets
                     models.Tweet.author_id.in_(following_ids_stmt), # following tweets
-                    models.Tweet.id.in_(liked_tweet_ids_stmt), # liked tweets
+                    # models.Tweet.id.in_(liked_tweet_ids_stmt), # liked tweets
                 )
             )
             .group_by(models.Tweet.id)
