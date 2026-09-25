@@ -1,8 +1,9 @@
-# Twitter Clone
+# Local Microblogs
 
 ---
 ## Описание
-Это учебный проект по курсу "Python - разработчик" представляет из себя корпоративный сервис микроблогов - аналог Twitter`а.
+Это pet - проект для отработки работы с FastAPI, SQLAlchemy, pydantic, pytest.
+Представляет из себя корпоративный сервис микроблогов.
 
 <img src="/imgs/twitter_clone.png">
 
@@ -26,12 +27,12 @@
 ## Установка и запуск
 Для установки на сервере выполните команду
 ```
-git clone https://github.com/AlxEliseev/skillbox_advanced_diploma.git
+git clone https://github.com/AlxEliseev/local_microblogs.git
 ```
 
 Для запуска сервиса на сервере перейдите в директорию *skillbox_advanced_diploma*
 ```
-cd skillbox_advanced_diploma
+cd local_microblogs
 ```
 и выполните команды
 ```
@@ -51,6 +52,6 @@ Swagger - документация к API доступна по адресу htt
 ## Авторизация
 
 > [!NOTE]
-> Проект не предусматривает полноценную авторизацию. Для демонстрациоyных целей авторизация доступна путём ввода id пользователя (*int*) в поле *api_key*.
+> Проект не предусматривает полноценную авторизацию. Для демонстрационных целей авторизация доступна путём ввода id пользователя (*int*) в поле *api_key*.
 >
 >![](/imgs/auth.png)
